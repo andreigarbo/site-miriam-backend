@@ -1,0 +1,8 @@
+GET http://localhost:3000/analytics/get-by-all-params
+Content-Type: application/json
+
+{
+"continentCode": "EU",
+"countryName": "Romania",
+"cityName": "Turda"
+}
