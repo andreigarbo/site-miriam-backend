@@ -117,6 +117,7 @@ export class analyticsDataController {
       //   throw new DBQueryError('Error while querying DB');
     }
     res.status(200).json(getAllResponse);
+    return;
   }
 
   public getByAllParams(req: Request, res: Response, next: NextFunction) {

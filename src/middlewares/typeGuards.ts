@@ -37,6 +37,10 @@ function isUser(obj: Object): obj is User {
     return false;
   }
 
+  if (!('role' in obj)) {
+    return false;
+  }
+
   return true;
 }
 export { isAnalyticsDataEntry, isUser };

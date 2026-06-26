@@ -21,7 +21,7 @@ export class usersRepo {
     const dbConnection = new dbConnectionService();
 
     const insertUserStatement =
-      'INSERT into users (username, password) VALUES (?, ?)';
+      'INSERT into users (username, password, role, secret) VALUES (?, ?, ?, ?)';
 
     if (!data.username || data.username == '') {
       return dbUserRepoOperationStatusCode.no_username;
@@ -31,7 +31,20 @@ export class usersRepo {
       return dbUserRepoOperationStatusCode.no_password;
     }
 
-    const requestParams = [data.username, data.password];
+    if (!data.role || data.role == '') {
+      return dbUserRepoOperationStatusCode.no_role;
+    }
+
+    if (!data.secret || data.secret == '') {
+      return dbUserRepoOperationStatusCode.no_secret;
+    }
+
+    const requestParams = [
+      data.username,
+      data.password,
+      data.role,
+      data.secret,
+    ];
 
     const [insertQueryStatusCode, insertQueryResult] = dbConnection.query(
       insertUserStatement,
@@ -48,15 +61,12 @@ export class usersRepo {
 
   public update(username: string, data: User): dbUserRepoOperationStatusCode {
     const dbConnection = new dbConnectionService();
-    let noUsername = false;
-    let noPassword = false;
 
-    const updateUsernameStatement =
-      'UPDATE users SET username = ? WHERE username = ?';
-    const updatePasswordStatement =
-      'UPDATE users SET password = ? WHERE username = ?';
-    const updateUsernamePasswordStatement =
-      'UPDATE users SET username = ?, password = ? WHERE username = ?';
+    const updateUsersArray = ['UPDATE users SET ', '', ' WHERE username = ?'];
+
+    const updateUsernameInsert = 'username = ?';
+    const updatePasswordInsert = 'password = ?';
+    const updateRoleInsert = 'role = ?';
 
     let updateStatement = '';
     let updateParams = [];
@@ -65,28 +75,44 @@ export class usersRepo {
       return dbUserRepoOperationStatusCode.no_username;
     }
 
-    if (data.username == '' && data.password == '') {
+    if (data.username == '' && data.password == '' && data.role == '') {
       return dbUserRepoOperationStatusCode.no_data_for_update;
     }
 
-    if (data.username == '') {
-      noUsername = true;
+    let preparedString = '';
+    let preparedStringArray = [];
+    let paramNo = 0;
+
+    if (data.username && data.username != '') {
+      preparedStringArray[paramNo] = updateUsernameInsert;
+      updateParams[paramNo] = data.username;
+      paramNo++;
     }
 
-    if (data.password == '') {
-      noPassword = true;
+    if (data.password && data.password != '') {
+      preparedStringArray[paramNo] = updatePasswordInsert;
+      updateParams[paramNo] = data.password;
+      paramNo++;
     }
 
-    if (noUsername) {
-      updateStatement = updatePasswordStatement;
-      updateParams = [username, data.password];
-    } else if (noPassword) {
-      updateStatement = updateUsernameStatement;
-      updateParams = [username, data.username];
-    } else {
-      updateStatement = updateUsernamePasswordStatement;
-      updateParams = [username, data.password, data.username];
+    if (data.role && data.role != '') {
+      preparedStringArray[paramNo] = updateRoleInsert;
+      updateParams[paramNo] = data.role;
+      paramNo++;
     }
+
+    updateParams[paramNo] = username;
+
+    for (let i = 0; i < paramNo; i++) {
+      preparedString += preparedStringArray[i];
+      if (i != paramNo - 1) {
+        preparedString += ', ';
+      }
+    }
+
+    updateUsersArray[1] = preparedString;
+
+    updateStatement = updateUsersArray.join('');
 
     const [updateQueryStatusCode, updateQueryResult] = dbConnection.query(
       updateStatement,
@@ -105,7 +131,7 @@ export class usersRepo {
     return dbUserRepoOperationStatusCode.success;
   }
 
-  public delete(username: string) {
+  public delete(username: string): dbUserRepoOperationStatusCode {
     const dbConnection = new dbConnectionService();
 
     const deleteEntryStatement = 'DELETE FROM users WHERE username = ?';
@@ -133,21 +159,16 @@ export class usersRepo {
     return dbUserRepoOperationStatusCode.success;
   }
 
-  public get(data: User): [dbUserRepoOperationStatusCode, User | null] {
+  public get(username: string): [dbUserRepoOperationStatusCode, User | null] {
     const dbConnection = new dbConnectionService();
 
-    const selectUserStatement =
-      'SELECT * FROM users WHERE username = ? AND password = ?';
+    const selectUserStatement = 'SELECT * FROM users WHERE username = ?';
 
-    if (!data.username || data.username == '') {
+    if (username || username == '') {
       return [dbUserRepoOperationStatusCode.no_username, null];
     }
 
-    if (!data.password || data.password == '') {
-      return [dbUserRepoOperationStatusCode.no_password, null];
-    }
-
-    const requestParams = [data.username, data.password];
+    const requestParams = [username];
 
     const [selectQueryStatusCode, selectQueryResult] = dbConnection.query(
       selectUserStatement,

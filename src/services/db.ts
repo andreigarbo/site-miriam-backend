@@ -21,10 +21,11 @@ class dbConnectionService {
 
   private createUsersTable() {
     this.connection.exec(
-      `CREATE TABLE IF NOT EXISTS user(
+      `CREATE TABLE IF NOT EXISTS users(
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL,
+      username TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
+      secret TEXT NOT NULL
       )`,
     );
   }

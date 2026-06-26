@@ -1,4 +1,4 @@
-POST http://localhost:5000/analytics/report-visit
+POST http://localhost:3000/analytics/report-visit
 Content-Type: application/json
 
 {

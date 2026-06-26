@@ -27,6 +27,8 @@ enum dbAnalyticsRepoOperationStatusCode {
 enum dbUserRepoOperationStatusCode {
   no_username = 'NO_USERNAME',
   no_password = 'NO_PASSWORD',
+  no_role = 'NO_ROLE',
+  no_secret = 'NO_SECRET',
   no_data_for_update = 'NO_DATA_FOR_UPDATE',
   error_querying_db = 'ERROR_QUERYING_DB',
   error_writing_db = 'ERROR_WRITING_DB',
