@@ -6,7 +6,6 @@ import {
 } from '../constants/dbStatusCodes.js';
 
 import { isAnalyticsDataEntry } from '../middlewares/typeGuards.js';
-import { addAbortListener } from 'node:events';
 
 export class analyticsRepo {
   static #instance: analyticsRepo;

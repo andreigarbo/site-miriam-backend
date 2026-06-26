@@ -1,10 +1,10 @@
-POST http://localhost:3000/analytics/report-visit
+POST http://localhost:5000/analytics/report-visit
 Content-Type: application/json
 
 {
 "continentCode": "EU",
-"countryName": "Romania",
-"cityName": "Bucharest"
+"countryName": "France",
+"cityName": "Paris"
 }
 
 # {

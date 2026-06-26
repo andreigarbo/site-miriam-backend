@@ -1,0 +1,4 @@
+Docker commands:
+
+sudo docker buildx build -f Dockerfile . -t site-miriam-backend
+sudo docker run -p 5000:5000 site-miriam-backend

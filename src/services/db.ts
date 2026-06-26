@@ -19,6 +19,16 @@ class dbConnectionService {
     );
   }
 
+  private createUsersTable() {
+    this.connection.exec(
+      `CREATE TABLE IF NOT EXISTS user(
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL,
+      password TEXT NOT NULL,
+      )`,
+    );
+  }
+
   constructor() {
     if (!dbConnectionService.#instance) {
       dbConnectionService.#instance = this;
@@ -26,15 +36,9 @@ class dbConnectionService {
     this.connection = new Database(path.resolve('./dist/data/portfolio.db'));
     this.connection.pragma('journal_mode = WAL');
     this.createAnalyticsTable();
+    this.createUsersTable();
     return dbConnectionService.#instance;
   }
-
-  // public static get instance() {
-  //   if (!dbConnectionService.#instance) {
-  //     dbConnectionService.#instance = new dbConnectionService();
-  //   }
-  //   return dbConnectionService.#instance;
-  // }
 
   public query(
     sql: string,
