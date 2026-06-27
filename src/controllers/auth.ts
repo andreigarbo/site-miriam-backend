@@ -1,7 +1,13 @@
 import type { Request, Response, NextFunction } from 'express';
-import { generateToken, verifyToken } from 'node-2fa';
 import { usersRepo } from '../repositories/users.js';
 import { dbUserRepoOperationStatusCode } from '../constants/dbStatusCodes.js';
+import {
+  comparePasswords,
+  generateTempJWT,
+  verifyToken,
+  verify2FACode,
+  generateJWT,
+} from '../utils/crypto.js';
 
 export class authController {
   static #instance: authController;
@@ -14,10 +20,10 @@ export class authController {
     return authController.#instance;
   }
 
-  public login(req: Request, res: Response, next: NextFunction) {
+  public async login(req: Request, res: Response, next: NextFunction) {
     const usersRepoInstance = new usersRepo();
 
-    const { username, password, token } = req.body;
+    const { username, password } = req.body;
 
     if (!username || username == '') {
       res.status(400).json({
@@ -29,13 +35,6 @@ export class authController {
     if (!password || password == '') {
       res.status(400).json({
         message: 'no password provided',
-      });
-      return;
-    }
-
-    if (!token || token == '') {
-      res.status(400).json({
-        message: 'no 2FA token provided',
       });
       return;
     }
@@ -59,17 +58,109 @@ export class authController {
       return;
     }
 
-    if (getUserResult.password != password) {
+    const passwordsMatch = await comparePasswords(
+      password,
+      getUserResult.password,
+    );
+
+    if (!passwordsMatch) {
       res.status(400).json({
         message: 'incorrect password',
       });
       return;
     }
 
-    next();
+    const tempToken = generateTempJWT({ username: username });
+
+    res.status(200).json({
+      message: 'success',
+      token: tempToken,
+    });
+
+    return;
   }
 
-  public validate2FA() {}
+  public validate2FA(req: Request, res: Response, next: NextFunction) {
+    if (!req.user) {
+      res.status(400).json({
+        message: 'internal server error',
+      });
+      return;
+    }
 
-  public refreshToken(req: Request, res: Response, next: NextFunction) {}
+    const { twoFACode } = req.body;
+
+    let tempToken = req.headers.authorization;
+
+    if (!tempToken || tempToken == '') {
+      res.status(401).json({
+        message: 'no temporary JTW token provided',
+      });
+      return;
+    }
+
+    tempToken = tempToken.split(' ')[1];
+
+    if (tempToken == undefined || !tempToken || tempToken == '') {
+      res.status(401).json({ message: 'Malformed token' });
+      return;
+    }
+
+    const [decryptTokenStatus, decryptedToken] = verifyToken(tempToken);
+
+    if (
+      decryptTokenStatus == false ||
+      !decryptedToken ||
+      !decryptedToken.username
+    ) {
+      res.status(401).json({
+        message: 'invalid token',
+      });
+      return;
+    }
+
+    const twoFAStatus = verify2FACode(req.user.secret, twoFACode);
+
+    if (!twoFAStatus) {
+      res.status(401).json({
+        message: 'invalid 2FA code, please try again',
+      });
+      return;
+    }
+
+    const jwtToken = generateJWT({
+      username: req.user.username,
+    });
+
+    if (!jwtToken) {
+      res.status(400).json({
+        message: 'internal server error',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      message: 'success',
+      token: jwtToken,
+    });
+    return;
+  }
+
+  public refreshToken(req: Request, res: Response, next: NextFunction) {
+    if (!req.user) {
+      res.status(400).json({
+        message: 'internal server error',
+      });
+      return;
+    }
+
+    const jwtToken = req.headers.authorization;
+
+    if (!jwtToken || jwtToken == '') {
+      res.status(401).json({
+        message: 'no jwt token provided',
+      });
+      return;
+    }
+  }
 }

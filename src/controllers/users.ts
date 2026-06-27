@@ -2,7 +2,7 @@ import type { Request, Response, NextFunction } from 'express';
 import { usersRepo } from '../repositories/users.js';
 import { UserRoles, type User } from '../models/user.js';
 import { dbUserRepoOperationStatusCode } from '../constants/dbStatusCodes.js';
-import twofactor from 'node-2fa';
+import { generate2FASecret, hashPassword } from '../utils/crypto.js';
 
 export class userController {
   static #instance: userController;
@@ -59,7 +59,7 @@ export class userController {
     return;
   }
 
-  public create(req: Request, res: Response, next: NextFunction) {
+  public async create(req: Request, res: Response, next: NextFunction) {
     const usersRepoInstance = new usersRepo();
 
     const { username, password, role } = req.body;
@@ -92,7 +92,7 @@ export class userController {
       return;
     }
 
-    const secret = twofactor.generateSecret({
+    const secret = generate2FASecret({
       name: "Miriam's Portfolio",
       account: username,
     });
@@ -104,11 +104,13 @@ export class userController {
       return;
     }
 
+    const encodedPassword = await hashPassword(password);
+
     const requestData = {
       username: username,
-      password: password,
+      password: encodedPassword,
       role: role,
-      secret: secret.secret,
+      secret: secret,
     } as User;
 
     const createResponseStatusCode = usersRepoInstance.insert(requestData);
@@ -119,7 +121,7 @@ export class userController {
       });
       return;
     }
-    res.status(200).json({ message: 'success', userSecret: secret.secret });
+    res.status(200).json({ message: 'success', userSecret: secret });
     return;
   }
 
