@@ -2,6 +2,11 @@ import path from 'path';
 import Database from 'better-sqlite3';
 import BetterSqlite3 from 'better-sqlite3';
 import { dbServiceOperationStatusCode } from '../constants/dbStatusCodes.js';
+import {
+  DBMalformedDataError,
+  RequestMissingDataError,
+  DBNonExistentEntryError,
+} from '../errors/errors.js';
 
 class dbConnectionService {
   static #instance: dbConnectionService;
@@ -25,6 +30,7 @@ class dbConnectionService {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
       password TEXT NOT NULL,
+      role TEXT NOT NULL,
       secret TEXT NOT NULL
       )`,
     );
@@ -45,7 +51,7 @@ class dbConnectionService {
     sql: string,
     params: string[],
     operation: 'get' | 'insert' | 'update' | 'selectAll' | 'delete',
-  ): [dbServiceOperationStatusCode, Object[] | Object | null] {
+  ): Object[] | Object | null {
     const preparedStatement = this.connection.prepare(sql);
     try {
       let executionResult = null;
@@ -54,24 +60,27 @@ class dbConnectionService {
         case 'insert':
         case 'delete':
           executionResult = preparedStatement.run(params);
-          return [dbServiceOperationStatusCode.success, null];
+          return null;
         case 'get':
           executionResult = preparedStatement.get(params);
 
           if (executionResult == undefined) {
-            return [dbServiceOperationStatusCode.no_data, null];
+            throw new DBNonExistentEntryError();
+            // return [dbServiceOperationStatusCode.no_data, null];
           }
-          return [dbServiceOperationStatusCode.success, executionResult];
+          return executionResult;
         case 'selectAll':
           executionResult = preparedStatement.all(params);
           if (executionResult == undefined) {
-            return [dbServiceOperationStatusCode.no_data, null];
+            throw new DBNonExistentEntryError();
+
+            // return [dbServiceOperationStatusCode.no_data, null];
           }
-          return [dbServiceOperationStatusCode.success, executionResult];
+          return executionResult;
       }
     } catch (error) {
-      console.log(error);
-      return [dbServiceOperationStatusCode.error, null];
+      throw error;
+      // return [dbServiceOperationStatusCode.error, null];
     }
   }
 }

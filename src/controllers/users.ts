@@ -3,6 +3,11 @@ import { usersRepo } from '../repositories/users.js';
 import { UserRoles, type User } from '../models/user.js';
 import { dbUserRepoOperationStatusCode } from '../constants/dbStatusCodes.js';
 import { generate2FASecret, hashPassword } from '../utils/crypto.js';
+import {
+  InternalServerError,
+  RequestInvalidDataError,
+  RequestMissingDataError,
+} from '../errors/errors.js';
 
 export class userController {
   static #instance: userController;
@@ -21,42 +26,15 @@ export class userController {
     const { username } = req.body;
 
     if (!username || username == '') {
-      res.status(400).json({
-        message: 'no username provided',
-      });
-      return;
+      throw new RequestMissingDataError('username');
     }
+    try {
+      const getResponse = usersRepoInstance.get(username);
 
-    const [getResponseStatusCode, getResponse] =
-      usersRepoInstance.get(username);
-
-    if (
-      getResponseStatusCode == dbUserRepoOperationStatusCode.non_existent_entry
-    ) {
-      res.status(400).json({
-        message: 'user does not exist',
-      });
-      return;
+      res.status(200).json(getResponse);
+    } catch (error) {
+      throw error;
     }
-
-    if (
-      getResponseStatusCode == dbUserRepoOperationStatusCode.error_querying_db
-    ) {
-      res.status(400).json({
-        message: 'error querying DB',
-      });
-      return;
-    }
-
-    if (getResponseStatusCode != dbUserRepoOperationStatusCode.success) {
-      res.status(400).json({
-        message: 'internal server error',
-      });
-      return;
-    }
-
-    res.status(200).json(getResponse);
-    return;
   }
 
   public async create(req: Request, res: Response, next: NextFunction) {
@@ -65,31 +43,19 @@ export class userController {
     const { username, password, role } = req.body;
 
     if (!username || username == '') {
-      res.status(400).json({
-        message: 'no username provided',
-      });
-      return;
+      throw new RequestMissingDataError('username');
     }
 
     if (!password || password == '') {
-      res.status(400).json({
-        message: 'no password provided',
-      });
-      return;
+      throw new RequestMissingDataError('password');
     }
 
     if (!role || role == '') {
-      res.status(400).json({
-        message: 'no role provided',
-      });
-      return;
+      throw new RequestMissingDataError('role');
     }
 
     if (!(role in UserRoles)) {
-      res.status(400).json({
-        message: 'role ' + role + ' not valid',
-      });
-      return;
+      throw new RequestInvalidDataError('role');
     }
 
     const secret = generate2FASecret({
@@ -98,11 +64,10 @@ export class userController {
     });
 
     if (!secret) {
-      res.status(500).json({
-        message: 'internal 2FA error',
-      });
-      return;
+      throw new InternalServerError();
     }
+
+    // bookmark
 
     const encodedPassword = await hashPassword(password);
 
@@ -135,16 +100,13 @@ export class userController {
       (!password || password == '') &&
       (!role || role == '')
     ) {
-      res.status(400).json({
-        message: 'please provide at least one parameter to update',
-      });
-      return;
+      throw new RequestMissingDataError(
+        'at least one of new username, password, role',
+      );
     }
 
     if (!currentUsername || currentUsername == '') {
-      res.status(400).json({
-        message: 'please provide current username',
-      });
+      throw new RequestMissingDataError('username');
     }
 
     if (!newUsername) {
@@ -165,32 +127,14 @@ export class userController {
       role: role,
     } as User;
 
-    const updateResponseStatusCode = usersRepoInstance.update(
-      currentUsername,
-      requestData,
-    );
-
-    if (
-      updateResponseStatusCode ==
-      dbUserRepoOperationStatusCode.non_existent_entry
-    ) {
-      res.status(400).json({
-        message: 'user does not exist',
+    try {
+      usersRepoInstance.update(currentUsername, requestData);
+      res.status(200).json({
+        message: 'success',
       });
-      return;
+    } catch (error) {
+      throw error;
     }
-
-    if (updateResponseStatusCode != dbUserRepoOperationStatusCode.success) {
-      res.status(400).json({
-        message: 'internal server error',
-      });
-      return;
-    }
-
-    res.status(200).json({
-      message: 'success',
-    });
-    return;
   }
 
   public remove(req: Request, res: Response, next: NextFunction) {

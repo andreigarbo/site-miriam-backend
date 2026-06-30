@@ -24,7 +24,7 @@ function isAnalyticsDataEntry(obj: Object): obj is AnalyticsDataEntry {
   return true;
 }
 
-function isUser(obj: Object): obj is User {
+function isUser(obj: Object[] | Object | null): obj is User {
   if (obj == undefined) {
     return false;
   }

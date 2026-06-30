@@ -48,6 +48,11 @@ export class authController {
       return;
     }
 
+    // DEBUGGING
+    console.log(getUserStatusCode);
+    console.log(getUserResult);
+    // DEBUGGING
+
     if (
       getUserStatusCode != dbUserRepoOperationStatusCode.success ||
       !getUserResult
@@ -154,7 +159,7 @@ export class authController {
       return;
     }
 
-    const jwtToken = req.headers.authorization;
+    let jwtToken = req.headers.authorization;
 
     if (!jwtToken || jwtToken == '') {
       res.status(401).json({
@@ -162,5 +167,42 @@ export class authController {
       });
       return;
     }
+
+    jwtToken = jwtToken.split(' ')[1];
+
+    if (jwtToken == undefined || !jwtToken || jwtToken == '') {
+      res.status(401).json({ message: 'Malformed token' });
+      return;
+    }
+
+    const [decryptTokenStatus, decryptedToken] = verifyToken(jwtToken);
+
+    if (
+      decryptTokenStatus == false ||
+      !decryptedToken ||
+      !decryptedToken.username
+    ) {
+      res.status(401).json({
+        message: 'invalid token',
+      });
+      return;
+    }
+
+    const newJwtToken = generateJWT({
+      username: req.user.username,
+    });
+
+    if (!newJwtToken) {
+      res.status(400).json({
+        message: 'internal server error',
+      });
+      return;
+    }
+
+    res.status(200).json({
+      message: 'success',
+      token: newJwtToken,
+    });
+    return;
   }
 }

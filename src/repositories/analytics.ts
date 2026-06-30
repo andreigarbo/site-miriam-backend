@@ -6,6 +6,10 @@ import {
 } from '../constants/dbStatusCodes.js';
 
 import { isAnalyticsDataEntry } from '../middlewares/typeGuards.js';
+import {
+  DBMalformedDataError,
+  RequestMissingDataError,
+} from '../errors/errors.js';
 
 export class analyticsRepo {
   static #instance: analyticsRepo;
@@ -27,14 +31,6 @@ export class analyticsRepo {
   private dbObjToAnalyticsEntry(
     objectToTransform: Object,
   ): AnalyticsDataEntry | null {
-    // interface tempInt {
-    //   continentCode: any;
-    //   countryName: any;
-    //   cityName: any;
-    //   id: any;
-    //   visits: any;
-    // }
-
     interface tempInt {
       [key: string]: any;
     }
@@ -65,59 +61,61 @@ export class analyticsRepo {
     return null;
   }
 
-  public insert(data: AnalyticsDataEntry): dbAnalyticsRepoOperationStatusCode {
+  public insert(data: AnalyticsDataEntry) {
     const dbConnection = new dbConnectionService();
 
     const insertVisitorCountEntryStatement =
       'INSERT into analytics (continent_code, country_name, city_name, visits) VALUES (?, ?, ?, 1)';
 
     if (!data.continentCode || data.continentCode == '') {
-      return dbAnalyticsRepoOperationStatusCode.no_continent;
+      throw new RequestMissingDataError('continentCode');
     }
 
     if (!data.countryName || data.countryName == '') {
-      return dbAnalyticsRepoOperationStatusCode.no_country;
+      throw new RequestMissingDataError('countryName');
     }
 
     if (!data.cityName || data.cityName == '') {
-      return dbAnalyticsRepoOperationStatusCode.no_city;
+      throw new RequestMissingDataError('cityName');
     }
 
     const requestParams = [data.continentCode, data.countryName, data.cityName];
 
-    const [insertQueryStatusCode, insertQueryResult] = dbConnection.query(
-      insertVisitorCountEntryStatement,
-      requestParams,
-      'insert',
-    );
-
-    if (insertQueryStatusCode == dbServiceOperationStatusCode.error) {
-      return dbAnalyticsRepoOperationStatusCode.error_writing_db;
+    try {
+      dbConnection.query(
+        insertVisitorCountEntryStatement,
+        requestParams,
+        'insert',
+      );
+    } catch (error) {
+      throw error;
     }
-
-    return dbAnalyticsRepoOperationStatusCode.success;
   }
 
-  public update(data: AnalyticsDataEntry): dbAnalyticsRepoOperationStatusCode {
+  public update(data: AnalyticsDataEntry) {
     const dbConnection = new dbConnectionService();
 
     const updateVisitorCountStatement =
       'UPDATE analytics set visits = ? WHERE continent_code = ? AND country_name = ? AND city_name = ?';
 
     if (!data.continentCode || data.continentCode == '') {
-      return dbAnalyticsRepoOperationStatusCode.no_continent;
+      throw new RequestMissingDataError('continentCode');
+      // return dbAnalyticsRepoOperationStatusCode.no_continent;
     }
 
     if (!data.countryName || data.countryName == '') {
-      return dbAnalyticsRepoOperationStatusCode.no_country;
+      throw new RequestMissingDataError('countryName');
+      // return dbAnalyticsRepoOperationStatusCode.no_country;
     }
 
     if (!data.cityName || data.cityName == '') {
-      return dbAnalyticsRepoOperationStatusCode.no_city;
+      throw new RequestMissingDataError('cityName');
+      // return dbAnalyticsRepoOperationStatusCode.no_city;
     }
 
     if (!data.visits) {
-      return dbAnalyticsRepoOperationStatusCode.no_visits;
+      throw new DBMalformedDataError();
+      // return dbAnalyticsRepoOperationStatusCode.no_visits;
     }
     const requestParams = [
       data.visits.toString(),
@@ -126,111 +124,88 @@ export class analyticsRepo {
       data.cityName,
     ];
 
-    const [updateQueryStatusCode, updateQueryResult] = dbConnection.query(
-      updateVisitorCountStatement,
-      requestParams,
-      'update',
-    );
-
-    if (updateQueryStatusCode == dbServiceOperationStatusCode.no_data) {
-      return dbAnalyticsRepoOperationStatusCode.non_existent_entry;
+    try {
+      dbConnection.query(updateVisitorCountStatement, requestParams, 'update');
+    } catch (error) {
+      throw error;
     }
-
-    if (updateQueryStatusCode == dbServiceOperationStatusCode.error) {
-      return dbAnalyticsRepoOperationStatusCode.error_writing_db;
-    }
-
-    return dbAnalyticsRepoOperationStatusCode.success;
   }
 
-  public delete(data: AnalyticsDataEntry): dbAnalyticsRepoOperationStatusCode {
+  public delete(data: AnalyticsDataEntry) {
     const dbConnection = new dbConnectionService();
 
     const deleteEntryStatement =
       'DELETE FROM analytics WHERE continent_code = ? AND country_name = ? AND city_name = ?';
 
     if (!data.continentCode || data.continentCode == '') {
-      return dbAnalyticsRepoOperationStatusCode.no_continent;
+      throw new RequestMissingDataError('continentCode');
+      // return dbAnalyticsRepoOperationStatusCode.no_continent;
     }
 
     if (!data.countryName || data.countryName == '') {
-      return dbAnalyticsRepoOperationStatusCode.no_country;
+      throw new RequestMissingDataError('countryName');
+      // return dbAnalyticsRepoOperationStatusCode.no_country;
     }
 
     if (!data.cityName || data.cityName == '') {
-      return dbAnalyticsRepoOperationStatusCode.no_city;
+      throw new RequestMissingDataError('cityName');
+      // return dbAnalyticsRepoOperationStatusCode.no_city;
     }
     const requestParams = [data.continentCode, data.countryName, data.cityName];
 
-    const [deleteQueryStatusCode, deleteQueryResult] = dbConnection.query(
-      deleteEntryStatement,
-      requestParams,
-      'delete',
-    );
-
-    if (deleteQueryStatusCode == dbServiceOperationStatusCode.no_data) {
-      return dbAnalyticsRepoOperationStatusCode.non_existent_entry;
+    try {
+      dbConnection.query(deleteEntryStatement, requestParams, 'delete');
+    } catch (error) {
+      throw error;
     }
-
-    if (deleteQueryStatusCode == dbServiceOperationStatusCode.error) {
-      return dbAnalyticsRepoOperationStatusCode.error_writing_db;
-    }
-
-    return dbAnalyticsRepoOperationStatusCode.success;
   }
 
-  public get(
-    data: AnalyticsDataEntry,
-  ): [dbAnalyticsRepoOperationStatusCode, AnalyticsDataEntry | null] {
+  public get(data: AnalyticsDataEntry): AnalyticsDataEntry | null {
     const dbConnection = new dbConnectionService();
 
     const selectAllStatement =
       'SELECT * FROM analytics WHERE continent_code = ? AND country_name = ? AND city_name = ?';
 
     if (!data.continentCode || data.continentCode == '') {
-      return [dbAnalyticsRepoOperationStatusCode.no_continent, null];
+      throw new RequestMissingDataError('continentCode');
+      // return [dbAnalyticsRepoOperationStatusCode.no_continent, null];
     }
 
     if (!data.countryName || data.countryName == '') {
-      return [dbAnalyticsRepoOperationStatusCode.no_country, null];
+      throw new RequestMissingDataError('countryName');
+      // return [dbAnalyticsRepoOperationStatusCode.no_country, null];
     }
 
     if (!data.cityName || data.cityName == '') {
-      return [dbAnalyticsRepoOperationStatusCode.no_city, null];
+      throw new RequestMissingDataError('cityName');
+      // return [dbAnalyticsRepoOperationStatusCode.no_city, null];
     }
 
     const requestParams = [data.continentCode, data.countryName, data.cityName];
-
-    const [selectQueryStatusCode, selectQueryResult] = dbConnection.query(
-      selectAllStatement,
-      requestParams,
-      'get',
-    );
-
-    if (
-      selectQueryStatusCode == dbServiceOperationStatusCode.no_data &&
-      selectQueryResult == undefined
-    ) {
-      return [dbAnalyticsRepoOperationStatusCode.non_existent_entry, null];
+    let selectQueryResult = null;
+    try {
+      selectQueryResult = dbConnection.query(
+        selectAllStatement,
+        requestParams,
+        'get',
+      );
+    } catch (error) {
+      throw error;
     }
 
-    if (
-      selectQueryStatusCode == dbServiceOperationStatusCode.error ||
-      !selectQueryResult ||
-      selectQueryResult == null
-    ) {
-      return [dbAnalyticsRepoOperationStatusCode.error_querying_db, null];
+    if (selectQueryResult == null) {
+      return null;
     }
 
     const response = this.dbObjToAnalyticsEntry(selectQueryResult);
 
     if (response == null) {
-      return [dbAnalyticsRepoOperationStatusCode.malformed_db_data, null];
+      return null;
     }
-    return [dbAnalyticsRepoOperationStatusCode.success, response];
+    return response;
   }
 
-  public getAll(): [dbAnalyticsRepoOperationStatusCode, AnalyticsData | null] {
+  public getAll(): AnalyticsData | null {
     const dbConnection = new dbConnectionService();
 
     const selectAllStatement = 'SELECT * FROM analytics';
@@ -239,22 +214,20 @@ export class analyticsRepo {
     result.data = [];
     result.count = 0;
 
-    const [selectQueryStatusCode, selectQueryResult] = dbConnection.query(
-      selectAllStatement,
-      [],
-      'selectAll',
-    );
+    let selectQueryResult = null;
 
-    if (
-      selectQueryStatusCode == dbServiceOperationStatusCode.error ||
-      !selectQueryResult ||
-      selectQueryResult == null
-    ) {
-      return [dbAnalyticsRepoOperationStatusCode.error_querying_db, null];
+    try {
+      selectQueryResult = dbConnection.query(
+        selectAllStatement,
+        [],
+        'selectAll',
+      );
+    } catch (error) {
+      throw error;
     }
 
     if (!Array.isArray(selectQueryResult)) {
-      return [dbAnalyticsRepoOperationStatusCode.malformed_db_data, null];
+      throw new DBMalformedDataError();
     }
 
     for (const analyticsEntry of selectQueryResult) {
@@ -287,6 +260,6 @@ export class analyticsRepo {
       }
     }
 
-    return [dbAnalyticsRepoOperationStatusCode.success, result];
+    return result;
   }
 }

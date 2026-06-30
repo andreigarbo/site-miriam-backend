@@ -2,7 +2,12 @@ import type { Request, Response, NextFunction } from 'express';
 import { analyticsRepo } from '../repositories/analytics.js';
 import { dbAnalyticsRepoOperationStatusCode } from '../constants/dbStatusCodes.js';
 import type { AnalyticsDataEntry } from '../models/analytics.js';
-import { create } from 'node:domain';
+import { errorHandler } from '../errors/handler.js';
+import {
+  DBMalformedDataError,
+  RequestMissingDataError,
+  DBNonExistentEntryError,
+} from '../errors/errors.js';
 
 export class analyticsDataController {
   static #instance: analyticsDataController;
@@ -21,103 +26,65 @@ export class analyticsDataController {
     const { continentCode, countryName, cityName } = req.body;
 
     if (!continentCode || continentCode == '') {
-      res.status(400).json({
-        message: 'no continent code provided',
-      });
-      return;
+      throw new RequestMissingDataError('continentCode');
     }
 
     if (!countryName || countryName == '') {
-      res.status(400).json({
-        message: 'no country provided',
-      });
-      return;
+      throw new RequestMissingDataError('countryName');
     }
 
     if (!cityName || cityName == '') {
-      res.status(400).json({
-        message: 'no city provided',
-      });
-      return;
+      throw new RequestMissingDataError('cityName');
     }
+
     const requestData = {
       continentCode: continentCode,
       countryName: countryName,
       cityName: cityName,
     } as AnalyticsDataEntry;
 
-    const [currentAnalyticsStatuscode, currentAnalyticsResult] =
-      analyticsRepoInstance.get(requestData);
-
-    if (
-      currentAnalyticsStatuscode ==
-      dbAnalyticsRepoOperationStatusCode.non_existent_entry
-    ) {
-      //no analytics for this location, create entry with visits = 1
-      requestData['visits'] = 1;
-      const createEntryAnalyticsStatusCode =
-        analyticsRepoInstance.insert(requestData);
-
-      if (
-        createEntryAnalyticsStatusCode !=
-        dbAnalyticsRepoOperationStatusCode.success
-      ) {
-        res.status(500).json({
-          message: 'internal server error',
-        });
-        return;
-      }
-    } else if (
-      currentAnalyticsStatuscode == dbAnalyticsRepoOperationStatusCode.success
-    ) {
-      //analytics exist, increase visits by 1
-      if (!currentAnalyticsResult || !('visits' in currentAnalyticsResult)) {
-        res.status(500).json({
-          message: 'internal server error',
-        });
-        return;
-      }
-
-      currentAnalyticsResult.visits++;
-
-      const updateEntryAnalyticsStatusCode = analyticsRepoInstance.update(
-        currentAnalyticsResult,
-      );
-
-      if (
-        updateEntryAnalyticsStatusCode !=
-        dbAnalyticsRepoOperationStatusCode.success
-      ) {
-        res.status(500).json({
-          message: 'error reporting visit',
-        });
-        return;
+    let currentAnalyticsResult = null;
+    try {
+      currentAnalyticsResult = analyticsRepoInstance.get(requestData);
+    } catch (error: any) {
+      if (error instanceof DBNonExistentEntryError) {
+        requestData['visits'] = 1;
+        try {
+          analyticsRepoInstance.insert(requestData);
+          return;
+        } catch (error: any) {
+          throw error;
+        }
+      } else {
+        throw error;
       }
     }
-    res.status(200).json({
-      message: 'success',
-    });
-    return;
+
+    //analytics exist, increase visits by 1
+    if (!currentAnalyticsResult || !('visits' in currentAnalyticsResult)) {
+      throw new DBMalformedDataError();
+    }
+
+    currentAnalyticsResult.visits++;
+
+    try {
+      analyticsRepoInstance.update(currentAnalyticsResult);
+    } catch (error: any) {
+      throw error;
+    }
   }
 
   public getAll(req: Request, res: Response, next: NextFunction) {
     const analyticsRepoInstance = new analyticsRepo();
 
-    const [getAllResponseStatusCode, getAllResponse] =
-      analyticsRepoInstance.getAll();
-
-    if (
-      getAllResponseStatusCode ==
-      dbAnalyticsRepoOperationStatusCode.error_querying_db
-    ) {
-      res.status(500).json({
-        message: 'Error while querying DB',
-      });
-      return;
-      //   throw new DBQueryError('Error while querying DB');
+    let getAllResponse = null;
+    try {
+      getAllResponse = analyticsRepoInstance.getAll();
+    } catch (error) {
+      throw error;
     }
+
     res.status(200).json(getAllResponse);
-    return;
   }
 
   public getByAllParams(req: Request, res: Response, next: NextFunction) {
@@ -126,24 +93,15 @@ export class analyticsDataController {
     const { continentCode, countryName, cityName } = req.body;
 
     if (!continentCode || continentCode == '') {
-      res.status(400).json({
-        message: 'no continent code provided',
-      });
-      return;
+      throw new RequestMissingDataError('continentCode');
     }
 
     if (!countryName || countryName == '') {
-      res.status(400).json({
-        message: 'no country provided',
-      });
-      return;
+      throw new RequestMissingDataError('countryName');
     }
 
     if (!cityName || cityName == '') {
-      res.status(400).json({
-        message: 'no city provided',
-      });
-      return;
+      throw new RequestMissingDataError('cityName');
     }
 
     const requestData = {
@@ -152,24 +110,11 @@ export class analyticsDataController {
       cityName: cityName,
     } as AnalyticsDataEntry;
 
-    const [getResponseStatusCode, getResponse] =
-      analyticsRepoInstance.get(requestData);
-
-    if (
-      getResponseStatusCode ==
-      dbAnalyticsRepoOperationStatusCode.non_existent_entry
-    ) {
-      res.status(404).json({
-        message: 'no data for specified params',
-      });
-      return;
-    }
-
-    if (getResponseStatusCode != dbAnalyticsRepoOperationStatusCode.success) {
-      res.status(500).json({
-        message: 'internal server error',
-      });
-      return;
+    let getResponse = null;
+    try {
+      getResponse = analyticsRepoInstance.get(requestData);
+    } catch (error) {
+      throw error;
     }
 
     res.status(200).json(getResponse);
